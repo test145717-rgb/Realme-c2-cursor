@@ -1,0 +1,21 @@
+name: Build cursor overlay
+on: workflow_dispatch
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: unzip -q ./*.zip
+      - run: |
+          cd cursor-overlay
+          BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
+          PL=$(ls -d $ANDROID_HOME/platforms/android-* | sort -V | tail -1)
+          $BT/aapt2 compile --dir res -o compiled.zip
+          $BT/aapt2 link -o unsigned.apk -I $PL/android.jar --manifest AndroidManifest.xml --min-sdk-version 28 --target-sdk-version 28 compiled.zip
+          $BT/zipalign -f 4 unsigned.apk aligned.apk
+          keytool -genkeypair -keystore ks.jks -storepass android -keypass android -alias k -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=decomw"
+          $BT/apksigner sign --ks ks.jks --ks-pass pass:android --key-pass pass:android --out cursor-overlay.apk aligned.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: overlay
+          path: cursor-overlay/cursor-overlay.apk
